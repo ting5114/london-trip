@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>London Trip 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* --- 核心莫蘭迪質感 --- */
+        :root { --bg-color: #F4F1ED; --card-bg: #FFFFFF; --text-main: #4A443D; --text-light: #9E9892; }
+        body { font-family: -apple-system, "PingFang TC", sans-serif; background: var(--bg-color); color: var(--text-main); margin: 0; padding: 0; line-height: 1.5; scroll-behavior: smooth; }
+        .app-container { max-width: 480px; margin: 0 auto; min-height: 100vh; background: var(--bg-color); padding-bottom: 50px; }
+        
+        /* 頂部導航 */
+        .header { padding: 25px 20px 10px; display: flex; justify-content: space-between; align-items: baseline; }
+        .header h1 { font-size: 24px; font-weight: 400; letter-spacing: 3px; margin: 0; }
+        .sync-status { font-size: 11px; color: #7DBA84; background: #EAF4EA; padding: 4px 10px; border-radius: 12px; font-weight: 500;}
+        
+        .tabs { display: flex; justify-content: space-around; padding: 0 10px; margin-bottom: 15px; border-bottom: 1px solid #E0DCD6; background: var(--bg-color); position: sticky; top: 0; z-index: 800;}
+        .tab-item { font-size: 14px; color: var(--text-light); padding: 12px 15px; cursor: pointer; font-weight: 500; transition: 0.2s; position: relative; }
+        .tab-item.active { color: var(--text-main); font-weight: 600; }
+        .tab-item.active::after { content: ''; position: absolute; bottom: 0; left: 20%; width: 60%; height: 2px; background: var(--text-main); }
+
+        .tab-content { display: none; padding: 0 20px; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { background: var(--card-bg); border-radius: 24px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #fff; position: relative; }
+        .card-title { font-size: 13px; color: var(--text-light); margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
+
+        /* 英鎊專屬樣式 (置中灰小) */
+        .gbp-text { font-size: 11px; color: #aaa; font-weight: 400; display: block; text-align: center; width: 100%; margin-top: 2px; }
+
+        /* 首頁匯率與班機 */
+        .exchange-calc { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+        .currency-input { font-size: 28px; color: var(--text-main); border: none; border-bottom: 1px solid #E0DCD6; width: 90%; background: transparent; outline: none; }
+        .flight-info { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+        .flight-dest { font-size: 22px; font-weight: 600; }
+
+        /* 首頁按鈕 */
+        .quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+        .action-btn { background: #fff; border-radius: 20px; padding: 18px 0; text-align: center; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #f9f9f9; transition: 0.2s; }
+        .action-btn:active { transform: scale(0.95); }
+        .action-icon { font-size: 24px; display: block; margin-bottom: 6px;}
+        .action-text { font-size: 12px; font-weight: 600; color: var(--text-main); }
+        .btn-add-small { background: #EAE6DF; color: #4A443D; border: none; padding: 6px 12px; border-radius: 10px; font-size: 11px; cursor: pointer; font-weight: 600; }
+
+        .note-item { padding: 15px; background: #fafafa; border-radius: 16px; margin-bottom: 10px; cursor: pointer; border: 1px solid #eee; display: flex; flex-direction: column; gap: 6px; }
+        .note-cat { font-size: 10px; color: #fff; background: #D2C7BA; padding: 2px 8px; border-radius: 6px; align-self: flex-start; font-weight: 600;}
+        .note-preview { font-size: 14px; font-weight: 500; color: var(--text-main); white-space: pre-wrap; }
+
+        /* 行程時間軸 UI */
+        .day-scroller { display: flex; overflow-x: auto; gap: 12px; padding: 5px 0 15px; margin-bottom: 15px; margin-left: -20px; margin-right: -20px; padding-left: 20px; padding-right: 20px; }
+        .day-scroller::-webkit-scrollbar { display: none; }
+        .day-tab-btn { text-align: center; font-size: 14px; color: #999; cursor: pointer; padding: 10px 18px; border-radius: 16px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.02); flex-shrink: 0; font-weight: 600; }
+        .day-tab-btn.active { color: #fff; background: #4A443D; }
+
+        .timeline-row { display: flex; margin-bottom: 15px; align-items: stretch; position: relative; }
+        .timeline-left { width: 55px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding-top: 5px; }
+        .time-text { font-size: 12px; font-weight: 600; color: #888; background: var(--bg-color); z-index: 2; margin-bottom: 4px; }
+        .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: #D2C7BA; z-index: 2; }
+        .timeline-line { flex: 1; width: 2px; background: #E0DCD6; position: relative; }
+        .time-gap { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; font-size: 10px; color: #999; padding: 2px 6px; border-radius: 10px; border: 1px solid #E0DCD6; white-space: nowrap; z-index: 3; font-weight: 500; }
+
+        .trip-card { flex: 1; background: var(--card-bg); border-radius: 18px; padding: 18px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid #fff; position: relative; }
+        .trip-card.transport { background: #FCFAf8; }
+        .tc-dest { font-size: 16px; font-weight: 600; color: var(--text-main); }
+        .tc-notes { font-size: 13px; color: #666; margin-top: 8px; white-space: pre-wrap; line-height: 1.5; }
+        .tc-cost-row { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; color: #8C7A6B; font-weight: 600; background: #F4F1ED; padding: 4px 10px; border-radius: 12px;}
+        .map-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; font-size: 12px; color: #7DBA84; background: #EAF4EA; padding: 6px 14px; border-radius: 12px; text-decoration: none; font-weight: 600;}
+        .edit-trigger { position: absolute; top: 15px; right: 15px; color: #ccc; background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px; }
+
+        /* 記帳 (左右平行版) */
+        .exp-overview-card { background: #fff; border-radius: 24px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #f9f9f9; }
+        .exp-total-twd { font-size: 42px; font-weight: 600; text-align: center; color: var(--text-main); }
+        .exp-split { display: flex; justify-content: space-between; border-top: 1px solid #f0f0f0; padding-top: 20px; margin-top: 20px; }
+        .exp-split-item { text-align: center; flex: 1; }
+        .exp-split-divider { width: 1px; background: #eee; margin: 0 10px; }
+        .exp-split-title { font-size: 12px; color: #999; margin-bottom: 6px; }
+        .exp-split-val { font-size: 18px; font-weight: 600; color: var(--text-main); }
+
+        .stats-scroller { display: flex; overflow-x: auto; gap: 12px; padding-bottom: 15px; margin-bottom: 5px; margin-left: -20px; margin-right: -20px; padding-left: 20px; padding-right: 20px; }
+        .stats-scroller::-webkit-scrollbar { display: none; }
+        .stat-card { background: #fff; border-radius: 18px; padding: 15px 12px; min-width: 95px; text-align: center; border: 1px solid #f5f5f5; box-shadow: 0 2px 10px rgba(0,0,0,0.02); flex-shrink: 0;}
+        .stat-icon { font-size: 22px; margin-bottom: 8px; }
+
+        .filter-tabs { display: flex; gap: 8px; background: #EAE6DF; padding: 4px; border-radius: 20px; margin-bottom: 15px;}
+        .filter-btn { padding: 6px 14px; font-size: 12px; border-radius: 16px; cursor: pointer; color: #888; font-weight: 600; }
+        .filter-btn.active { background: #4A443D; color: #fff; }
+
+        .exp-list-item { background: #fff; border-radius: 18px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); border: 1px solid #f9f9f9; cursor: pointer;}
+        .exp-list-left { display: flex; align-items: center; gap: 12px; }
+        .exp-list-date { font-size: 10px; color: #aaa; font-weight: 700; width: 32px; }
+
+        /* 準備清單 */
+        .pack-cat-card { background: #fff; border-radius: 18px; margin-bottom: 12px; border: 1px solid #f9f9f9; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+        .pack-cat-header { padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 600; font-size: 15px; }
+        .pack-cat-body { padding: 0 20px 10px 20px; display: none; }
+        .pack-cat-body.open { display: block; }
+        .pack-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid #f9f9f9; }
+        .pack-checkbox { width: 22px; height: 22px; border-radius: 6px; border: 2px solid #ddd; display: flex; align-items: center; justify-content: center; color: transparent; font-size: 14px;}
+        .pack-checkbox.checked { background: #D2C7BA; border-color: #D2C7BA; color: #fff; }
+
+        /* --- 修正後的 Modal 定位 --- */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: #fff; width: 88%; max-width: 420px; border-radius: 28px; padding: 30px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.15); max-height: 85vh; overflow-y: auto;}
+        .modal-close { position: absolute; top: 20px; right: 20px; font-size: 20px; color: #ccc; cursor: pointer; background: #f5f5f5; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;}
+        .modal-input { width: 100%; padding: 14px 16px; border: 1px solid #E0DCD6; border-radius: 14px; margin-bottom: 16px; font-size: 15px; box-sizing: border-box; outline: none; background: #fafafa; font-family: inherit;}
+        .btn-modal { width: 100%; background: #4A443D; color: white; border: none; padding: 16px; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 16px; }
+        .modal-label { font-size: 12px; color: #999; margin-bottom: 6px; display: block; padding-left: 4px; font-weight: 600;}
+
+        .fab { position: fixed; bottom: 30px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: #333; color: #fff; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 15px rgba(0,0,0,0.2); border: none; z-index: 100; transition: 0.2s;}
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <h1>LONDON</h1>
+        <div id="sync-status" class="sync-status">連線中...</div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab-item active" onclick="switchTab('home')">首頁</div>
+        <div class="tab-item" onclick="switchTab('itinerary')">行程</div>
+        <div class="tab-item" onclick="switchTab('expense')">記帳</div>
+        <div class="tab-item" onclick="switchTab('packing')">準備</div>
+    </div>
+
+    <div id="tab-home" class="tab-content active">
+        <div class="card">
+            <div class="card-title">🧮 匯率試算</div>
+            <div class="exchange-calc">
+                <div style="flex:1"><div style="font-size:11px;color:#999;margin-bottom:4px;">GBP 英鎊</div><input type="number" id="gbp-input" class="currency-input" value="100" oninput="calcExchange()"></div>
+                <div style="color: #ccc; margin: 0 15px; font-size: 20px;">=</div>
+                <div style="flex:1;text-align:right;"><div style="font-size:11px;color:#999;margin-bottom:4px;">TWD 台幣</div><div id="twd-result" style="font-size:28px; font-weight:300;">--</div></div>
+            </div>
+            <div id="rate-info" style="font-size:10px; color:#aaa; margin-top:8px;">自動更新匯率中...</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">✈️ 航班資訊 <span><strong>ES5KWU</strong></span></div>
+            <div style="font-size:11px; color:#aaa; margin-bottom:5px;">去程：5月1日 週五 (CI081)</div>
+            <div class="flight-info">
+                <div><div class="flight-dest">TPE</div><div class="flight-time">08:20</div></div>
+                <div style="flex:1; text-align:center; position:relative; color:#ccc; font-size:11px;">15h 10m<div style="border-bottom:1px solid #eee; margin-top:4px;"></div></div>
+                <div style="text-align:right;"><div class="flight-dest">LHR</div><div class="flight-time">16:30</div></div>
+            </div>
+            <div style="border-top: 1px dashed #eee; margin: 15px 0;"></div>
+            <div style="font-size:11px; color:#aaa; margin-bottom:5px;">回程：5月11日 週一 (CI082)</div>
+            <div class="flight-info">
+                <div><div class="flight-dest">LHR</div><div class="flight-time">21:10</div></div>
+                <div style="flex:1; text-align:center; position:relative; color:#ccc; font-size:11px;">13h 40m<div style="border-bottom:1px solid #eee; margin-top:4px;"></div></div>
+                <div style="text-align:right;"><div class="flight-dest">TPE</div><div class="flight-time">17:50 <sup style="color:#D96C6C">+1</sup></div></div>
+            </div>
+        </div>
+
+        <div class="quick-actions">
+            <div class="action-btn" onclick="openModal('translateModal')"><span class="action-icon">A/文</span><span class="action-text">求生翻譯</span></div>
+            <div class="action-btn" onclick="openModal('emergencyModal')"><span class="action-icon">🚨</span><span class="action-text">緊急聯絡</span></div>
+            <div class="action-btn" onclick="openModal('linkModal')"><span class="action-icon">🔗</span><span class="action-text">實用連結</span></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📝 記事本 <button onclick="openNoteModal()" class="btn-add-small">＋ 新增</button></div>
+            <div id="noteList"></div>
+        </div>
+    </div>
+
+    <div id="tab-itinerary" class="tab-content">
+        <div class="day-scroller" id="day-scroller-trip"></div>
+        <div style="display:flex; justify-content:flex-end; margin-bottom:15px; padding-right:5px;">
+            <button id="edit-btn" style="background:#EAE6DF; color:#4A443D; border:none; padding:8px 18px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;" onclick="toggleEditMode()">↕ 調整順序</button>
+        </div>
+        <div id="tripList" style="padding-left:10px; padding-right:10px;"></div>
+    </div>
+
+    <div id="tab-expense" class="tab-content">
+        <div class="day-scroller" id="day-scroller-exp"></div>
+        <div class="exp-overview-card">
+            <div style="font-size:12px; color:#999; text-align:center;">總支出 (TWD)</div>
+            <div class="exp-total-twd" id="exp-total-twd">0</div>
+            <span class="gbp-text">£ <span id="exp-total-gbp-val">0</span></span>
+            <div class="exp-split">
+                <div class="exp-split-item"><div class="exp-split-title">現金累積</div><div class="exp-split-val" id="exp-cash-twd">0</div><span class="gbp-text">£ <span id="exp-cash-gbp">0</span></span></div>
+                <div class="exp-split-divider"></div>
+                <div class="exp-split-item"><div class="exp-split-title">信用卡累積</div><div class="exp-split-val" id="exp-card-twd">0</div><span class="gbp-text">£ <span id="exp-card-gbp">0</span></span></div>
+            </div>
+        </div>
+        <div class="card-title" style="margin-left:5px;">📊 分類統計 (TWD)</div>
+        <div class="stats-scroller" id="exp-cat-scroller"></div>
+        <div class="card-title" style="margin-left:5px;">💳 支付統計 (TWD)</div>
+        <div class="stats-scroller" id="exp-pay-scroller"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+            <div class="filter-tabs"><div class="filter-btn active" id="btn-filter-all" onclick="setExpFilter('all')">全部</div><div class="filter-btn" id="btn-filter-cash" onclick="setExpFilter('cash')">現金</div><div class="filter-btn" id="btn-filter-card" onclick="setExpFilter('card')">信用卡</div></div>
+            <button onclick="openAddExpenseModal()" style="background:#4A443D; color:#fff; border:none; padding:7px 15px; border-radius:12px; font-size:12px; font-weight:600;">＋ 記一筆</button>
+        </div>
+        <div id="expenseList"></div>
+    </div>
+
+    <div id="tab-packing" class="tab-content">
+        <div class="card" style="text-align:center; padding:20px;">
+            <div id="pack-progress-text" style="font-size:15px; font-weight:600; color:#4A443D;">打包進度 0%</div>
+            <div style="width:100%; height:7px; background:#eee; border-radius:4px; margin-top:10px; overflow:hidden;"><div id="pack-bar" style="height:100%; background:#D2C7BA; width:0%; border-radius:4px; transition:0.4s;"></div></div>
+        </div>
+        <div style="text-align:right; margin-bottom:15px;"><button onclick="openModal('addPackingModal')" class="btn-add-small">＋ 新增物品</button></div>
+        <div id="packingList"></div>
+    </div>
+
+    <button class="fab" id="fab-action" style="display:none;" onclick="openModal('chooseTypeModal')">＋</button>
+</div>
+
+<div id="translateModal" class="modal-overlay" onclick="closeModal('translateModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('translateModal')">✕</span><div class="modal-title">🇬🇧 中英翻譯機</div><textarea id="trans-input" class="modal-input" style="height:100px; resize:none;" placeholder="輸入中文..."></textarea><button class="btn-modal" onclick="doTranslate()">翻譯成英文</button><div id="trans-output" style="margin-top:15px; padding:15px; background:#F2F4FA; border-radius:12px; font-size:15px; min-height:50px;"></div></div></div>
+<div id="emergencyModal" class="modal-overlay" onclick="closeModal('emergencyModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('emergencyModal')">✕</span><div class="modal-title">🚨 英國緊急聯絡</div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;"><div style="background:#FDF3F3; padding:15px; border-radius:12px; text-align:center;"><div style="font-size:11px;color:#999;">緊急報案</div><div style="font-size:24px; color:#D96C6C; font-weight:700;">999</div></div><div style="background:#FFF5F0; padding:15px; border-radius:12px; text-align:center;"><div style="font-size:11px;color:#999;">非緊急報案</div><div style="font-size:24px; color:#D98C6C; font-weight:700;">101</div></div></div><div style="background:#F2F4FA; padding:15px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:12px; color:#666;">駐英國台北代表處</div><div style="font-size:16px; font-weight:700; color:#4A443D;">07768-938-765</div></div><a href="tel:07768938765" style="background:#4A443D; color:#fff; padding:8px 15px; border-radius:10px; text-decoration:none; font-size:12px;">撥打</a></div></div></div>
+<div id="addPackingModal" class="modal-overlay" onclick="closeModal('addPackingModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('addPackingModal')">✕</span><div class="modal-title">🎒 新增物品</div><label class="modal-label">分類</label><select id="pack-cat-input" class="modal-input"><option>共同需要</option><option>媽行李</option><option>婷行李</option><option>重要證件</option></select><label class="modal-label">物品名稱</label><input type="text" id="pack-name-input" class="modal-input" placeholder="例如: 護照"><button class="btn-modal" onclick="savePacking()">儲存到清單</button></div></div>
+<div id="expenseModal" class="modal-overlay" onclick="closeModal('expenseModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('expenseModal')">✕</span><div class="modal-title" id="exp-modal-title">記花費</div><input type="hidden" id="exp-id"><label class="modal-label">日期</label><select id="exp-day" class="modal-input"></select><div style="display:flex; gap:10px;"><select id="exp-cat" class="modal-input" style="flex:1;"><option>🍽️ 飲食</option><option>🚇 交通</option><option>🏠 住宿</option><option>🛍️ 購物</option><option>🎫 票券</option><option>📦 其他</option></select><input type="text" id="exp-name" class="modal-input" style="flex:2;" placeholder="項目"></div><div style="display:flex; gap:10px;"><div style="flex:1;"><label class="modal-label">£ 英鎊</label><input type="number" id="exp-gbp" class="modal-input" value="0"></div><div style="flex:1;"><label class="modal-label">TWD 台幣</label><input type="number" id="exp-twd" class="modal-input" value="0"></div></div><label class="modal-label">付款方式</label><select id="exp-pay" class="modal-input"><option>現金</option><option>flygo婷</option><option>flygo媽</option><option>星展eco</option><option>星展極簡卡</option><option>華航聯名卡</option><option>好市多媽</option></select><button class="btn-modal" onclick="saveExpense()">儲存</button><button id="btn-del-exp" style="width:100%; background:none; color:#D96C6C; border:none; margin-top:20px; font-size:13px; font-weight:600; display:none;" onclick="delExpense()">🗑️ 刪除記錄</button></div></div>
+<div id="editTripModal" class="modal-overlay" onclick="closeModal('editTripModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('editTripModal')">✕</span><div class="modal-title">編輯卡片</div><input type="hidden" id="edit-trip-id"><input type="hidden" id="edit-trip-type"><label class="modal-label">時間</label><input type="text" id="edit-trip-time" class="modal-input" placeholder="10:00"><label class="modal-label">名稱</label><input type="text" id="edit-trip-dest" class="modal-input"><label class="modal-label">備註 (支援換行)</label><textarea id="edit-trip-notes" class="modal-input" style="height:120px; resize:none;"></textarea><div id="edit-group-trip"><label class="modal-label">Google Map 網址</label><input type="text" id="edit-trip-map" class="modal-input"></div><div id="edit-group-transport" style="display:none;"><label class="modal-label">預算金額</label><input type="text" id="edit-trip-cost" class="modal-input"></div><button class="btn-modal" onclick="saveTripEdit()">儲存更新</button></div></div>
+<div id="chooseTypeModal" class="modal-overlay" onclick="closeModal('chooseTypeModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('chooseTypeModal')">✕</span><div class="modal-title">新增行程</div><button class="btn-modal" style="margin-bottom:12px;" onclick="addNewTrip('trip')">📍 景點行程</button><button class="btn-modal" style="background:#D2C7BA;" onclick="addNewTrip('transport')">🚌 交通移動</button></div></div>
+<div id="noteModal" class="modal-overlay" onclick="closeModal('noteModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('noteModal')">✕</span><div class="modal-title" id="note-modal-title">📝 記事</div><input type="hidden" id="note-id"><label class="modal-label">類別</label><input type="text" id="note-cat" class="modal-input"><label class="modal-label">內容</label><textarea id="note-content" class="modal-input" style="height:150px; resize:none;"></textarea><button class="btn-modal" onclick="saveNote()">儲存記事</button></div></div>
+<div id="viewNoteModal" class="modal-overlay" onclick="closeModal('viewNoteModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('viewNoteModal')">✕</span><div id="view-note-cat" style="font-size:11px; color:#fff; background:#D2C7BA; padding:3px 8px; border-radius:6px; display:inline-block; margin-bottom:15px; font-weight:600;"></div><div id="view-note-content" style="white-space:pre-wrap; word-break:break-all; margin-bottom:20px; font-size:15px;"></div><div style="display:flex; gap:10px;"><button class="btn-modal" id="btn-edit-note" style="background:#fff; color:#4A443D; border:1px solid #ddd; flex:1;">修改</button><button class="btn-modal" id="btn-del-note" style="background:#FFF5F0; color:#D96C6C; flex:1;">刪除</button></div></div></div>
+<div id="linkModal" class="modal-overlay" onclick="closeModal('linkModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('linkModal')">✕</span><div class="modal-title">🔗 連結</div><div style="display:flex; gap:8px;"><input type="text" id="link-title" class="modal-input" placeholder="名稱"><input type="text" id="link-url" class="modal-input" placeholder="https://"></div><button class="btn-modal" onclick="addLink()">儲存</button><div id="modal-link-list" style="margin-top:15px;"></div></div></div>
+
+<script>
+    const supabaseUrl = "https://anifqowogwhvwaqjscrr.supabase.co".trim();
+    const supabaseKey = "sb_publishable_ts4n6Z61EeHsKoRcvZgdSg_NmVIOT-Y".trim();
+    const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    let allTrips = [], allExpenses = [], allPacking = [], allNotes = [], globalRate = 42.66;
+    let currentDayExp = 0, currentDayTrip = 1, currentExpFilter = 'all', isSortMode = false;
+    const tripDates = ['5/01','5/02','5/03','5/04','5/05','5/06','5/07','5/08','5/09','5/10','5/11','5/12'];
+
+    async function init() {
+        try {
+            const res = await fetch('https://api.exchangerate-api.com/v4/latest/GBP');
+            const data = await res.json();
+            globalRate = data.rates.TWD;
+            document.getElementById('rate-info').innerText = `今日匯率：${globalRate.toFixed(2)}`;
+            document.getElementById('sync-status').innerText = '✓ 已連線';
+        } catch(e) { document.getElementById('rate-info').innerText = '今日匯率：42.66'; }
+        renderDaySelectors(); fetchTrips(); fetchExpenses(); fetchPacking(); fetchNotes(); fetchLinks();
+        calcExchange();
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+        document.querySelectorAll('.tab-item').forEach(e => e.classList.remove('active'));
+        document.getElementById('tab-' + tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+        document.getElementById('fab-action').style.display = (tabId === 'itinerary') ? 'flex' : 'none';
+        if(tabId === 'itinerary') renderTrips();
+        if(tabId === 'expense') renderExpenses();
+        if(tabId === 'packing') renderPacking();
+    }
+    function closeModal(id, event) { if (!event || event.target === document.getElementById(id)) document.getElementById(id).classList.remove('active'); }
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function calcExchange() { document.getElementById('twd-result').innerText = Math.round((parseFloat(document.getElementById('gbp-input').value)||0) * globalRate).toLocaleString(); }
+
+    function renderDaySelectors() {
+        let tHtml = '', eHtml = `<div class="day-tab-btn ${currentDayExp===0?'active':''}" onclick="selectExpDay(0)">全部</div>`;
+        tripDates.forEach((d, i) => {
+            tHtml += `<div class="day-tab-btn ${i+1===currentDayTrip?'active':''}" onclick="selectTripDay(${i+1})">${d}</div>`;
+            eHtml += `<div class="day-tab-btn ${i+1===currentDayExp?'active':''}" onclick="selectExpDay(${i+1})">${d}</div>`;
+        });
+        document.getElementById('day-scroller-trip').innerHTML = tHtml;
+        document.getElementById('day-scroller-exp').innerHTML = eHtml;
+        document.getElementById('exp-day').innerHTML = tripDates.map((d,i)=>`<option value="Day ${i+1}">${d}</option>`).join('') + '<option value="行前">行前</option>';
+    }
+    function selectTripDay(i) { currentDayTrip = i; renderDaySelectors(); renderTrips(); }
+    function selectExpDay(i) { currentDayExp = i; renderDaySelectors(); renderExpenses(); }
+
+    async function fetchTrips() {
+        const { data } = await _supabase.from('london_trip').select('*');
+        allTrips = (data || []).sort((a,b) => (a.sort_order || a.id) - (b.sort_order || b.id)); renderTrips();
+    }
+    function calculateGap(t1, t2) {
+        if(!t1 || !t2) return '';
+        let [h1, m1] = t1.split(':').map(Number), [h2, m2] = t2.split(':').map(Number);
+        let d = (h2 * 60 + m2) - (h1 * 60 + m1);
+        return d > 0 ? (d >= 60 ? Math.floor(d/60)+'h'+(d%60?d%60+'m':'') : d+'m') : '';
+    }
+    function renderTrips() {
+        const dayTrips = allTrips.filter(t => t.day === `Day ${currentDayTrip}`);
+        document.getElementById('tripList').innerHTML = dayTrips.map((t, i) => {
+            const isT = t.item_type === 'transport';
+            let gap = (i < dayTrips.length - 1) ? calculateGap(t.city, dayTrips[i+1].city) : '';
+            return `<div class="timeline-row"><div class="timeline-left"><div class="time-text">${t.city || '10:00'}</div><div class="timeline-dot"></div><div class="timeline-line">${gap?`<div class="time-gap">${gap}</div>`:''}</div></div><div class="trip-card ${isT?'transport':''}">
+            <button class="edit-trigger" onclick="openEditTrip(${t.id})">⋮</button><div class="tc-dest">${t.dest}</div>${isT && t.cost?`<div class="tc-cost-row">💰 ${t.cost}</div>`:''}${t.notes?`<div class="tc-notes">${t.notes}</div>`:''}${!isT && t.map_url?`<a href="${t.map_url}" target="_blank" class="map-btn">📍 地圖 ↗</a>`:''}</div>${isSortMode?`<div style="display:flex;flex-direction:column;gap:5px;margin-left:10px;"><button onclick="moveOrder(${t.id},-1)">↑</button><button onclick="moveOrder(${t.id},1)">↓</button><button onclick="delTrip(${t.id})">✕</button></div>`:''}</div>`;
+        }).join('') || '<div style="text-align:center;padding:40px;color:#aaa;">無行程</div>';
+    }
+    async function addNewTrip(type) { closeModal('chooseTypeModal'); await _supabase.from('london_trip').insert([{ day: `Day ${currentDayTrip}`, city: '10:00', item_type: type, dest: type==='transport'?'🚌 交通':'📍 景點', sort_order: allTrips.length + 1 }]); fetchTrips(); }
+    function openEditTrip(id) {
+        const t = allTrips.find(x => x.id === id);
+        document.getElementById('edit-trip-id').value = t.id; document.getElementById('edit-trip-type').value = t.item_type;
+        document.getElementById('edit-trip-time').value = t.city; document.getElementById('edit-trip-dest').value = t.dest;
+        document.getElementById('edit-trip-notes').value = t.notes || '';
+        document.getElementById('edit-group-trip').style.display = t.item_type === 'transport' ? 'none' : 'block';
+        document.getElementById('edit-group-transport').style.display = t.item_type === 'transport' ? 'block' : 'none';
+        document.getElementById('edit-trip-cost').value = t.cost || ''; document.getElementById('edit-trip-map').value = t.map_url || '';
+        openModal('editTripModal');
+    }
+    async function saveTripEdit() {
+        const id = document.getElementById('edit-trip-id').value;
+        const up = { city: document.getElementById('edit-trip-time').value, dest: document.getElementById('edit-trip-dest').value, notes: document.getElementById('edit-trip-notes').value, cost: document.getElementById('edit-trip-cost').value, map_url: document.getElementById('edit-trip-map').value };
+        await _supabase.from('london_trip').update(up).eq('id', id); closeModal('editTripModal'); fetchTrips();
+    }
+    function toggleEditMode() { isSortMode = !isSortMode; document.getElementById('edit-btn').innerText = isSortMode?'✅ 完成':'↕ 調整順序'; renderTrips(); }
+    async function delTrip(id) { if(confirm('刪除？')){ await _supabase.from('london_trip').delete().eq('id', id); fetchTrips(); } }
+    async function moveOrder(id, dir) {
+        const d = allTrips.filter(t => t.day === `Day ${currentDayTrip}`); const idx = d.findIndex(t => t.id === id);
+        if(idx < 0 || idx+dir < 0 || idx+dir >= d.length) return;
+        const t1 = d[idx], t2 = d[idx+dir];
+        await _supabase.from('london_trip').update({ sort_order: t2.sort_order || t2.id }).eq('id', t1.id);
+        await _supabase.from('london_trip').update({ sort_order: t1.sort_order || t1.id }).eq('id', t2.id); fetchTrips();
+    }
+
+    async function fetchExpenses() {
+        const { data } = await _supabase.from('london_expenses').select('*').order('id', { ascending: false });
+        allExpenses = data || []; renderExpenses();
+    }
+    function setExpFilter(f) { currentExpFilter = f; document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.id==='btn-filter-'+f)); renderExpenses(); }
+    function openAddExpenseModal() { document.getElementById('exp-id').value = ''; document.getElementById('exp-day').value = `Day ${currentDayExp||currentDayTrip}`; document.getElementById('btn-del-exp').style.display='none'; openModal('expenseModal'); }
+    function renderExpenses() {
+        const base = currentDayExp === 0 ? allExpenses : allExpenses.filter(e => e.day === `Day ${currentDayExp}`);
+        let tT = 0, tG = 0, cT = 0, cG = 0, rT = 0, rG = 0, cats = {}, pays = {};
+        base.forEach(e => {
+            const g = parseFloat(e.amount)||0, t = parseFloat(e.amount_twd)||0; tT += t; tG += g;
+            if(e.payment_method === '現金'){ cT += t; cG += g; } else { rT += t; rG += g; }
+            let method = e.payment_method; if(!pays[method]) pays[method] = {t:0, g:0}; pays[method].t += t; pays[method].g += g;
+            let c = e.category || '📦 其他'; if(!cats[c]) cats[c] = {t:0, g:0}; cats[c].t += t; cats[c].g += g;
+        });
+        document.getElementById('exp-total-twd').innerText = tT.toLocaleString(); document.getElementById('exp-total-gbp-val').innerText = tG.toLocaleString();
+        document.getElementById('exp-cash-twd').innerText = cT.toLocaleString(); document.getElementById('exp-cash-gbp').innerText = cG.toLocaleString();
+        document.getElementById('exp-card-twd').innerText = rT.toLocaleString(); document.getElementById('exp-card-gbp').innerText = rG.toLocaleString();
+        document.getElementById('exp-cat-scroller').innerHTML = Object.keys(cats).map(k => `<div class="stat-card"><div class="stat-icon">${k.substring(0,2)}</div><div class="stat-val">$${cats[k].t.toLocaleString()}</div><span class="gbp-text">£${cats[k].g}</span></div>`).join('');
+        document.getElementById('exp-pay-scroller').innerHTML = Object.keys(pays).map(k => `<div class="stat-card"><div class="stat-icon">${k==='現金'?'💵':'💳'}</div><div style="font-size:11px;color:#888;">${k}</div><div class="stat-val">$${pays[k].t.toLocaleString()}</div><span class="gbp-text">£${pays[k].g}</span></div>`).join('');
+        const filtered = currentExpFilter === 'all' ? base : base.filter(e => currentExpFilter === 'cash' ? e.payment_method === '現金' : e.payment_method !== '現金');
+        document.getElementById('expenseList').innerHTML = filtered.map(e => `<div class="exp-list-item" onclick="openEditExpense(${e.id})"><div class="exp-list-left">${currentDayExp===0?`<div class="exp-list-date">${tripDates[parseInt(e.day.split(' ')[1])-1]}</div>`:''}<div style="font-size:18px;">${(e.category||'📦').substring(0,2)}</div><div><div style="font-size:14px;font-weight:600;">${e.item_name}</div><div style="font-size:11px;color:#999;">${e.payment_method}</div></div></div><div style="text-align:right;"><div style="font-size:16px;font-weight:700;">$${(e.amount_twd||0).toLocaleString()}</div><span class="gbp-text">£${e.amount}</span></div></div>`).join('');
+    }
+    function openEditExpense(id) {
+        const e = allExpenses.find(x => x.id === id);
+        document.getElementById('exp-id').value = e.id; document.getElementById('exp-day').value = e.day; document.getElementById('exp-cat').value = e.category; document.getElementById('exp-name').value = e.item_name; document.getElementById('exp-gbp').value = e.amount; document.getElementById('exp-twd').value = e.amount_twd; document.getElementById('exp-pay').value = e.payment_method;
+        document.getElementById('btn-del-exp').style.display = 'block'; openModal('expenseModal');
+    }
+    async function saveExpense() {
+        const id = document.getElementById('exp-id').value; const up = { day: document.getElementById('exp-day').value, category: document.getElementById('exp-cat').value, item_name: document.getElementById('exp-name').value, amount: parseFloat(document.getElementById('exp-gbp').value)||0, amount_twd: parseFloat(document.getElementById('exp-twd').value)||0, payment_method: document.getElementById('exp-pay').value };
+        if(id) await _supabase.from('london_expenses').update(up).eq('id', id); else await _supabase.from('london_expenses').insert([up]);
+        closeModal('expenseModal'); fetchExpenses();
+    }
+    async function delExpense() { if(confirm('刪除？')){ await _supabase.from('london_expenses').delete().eq('id', document.getElementById('exp-id').value); closeModal('expenseModal'); fetchExpenses(); } }
+
+    async function fetchPacking() {
+        const { data } = await _supabase.from('london_packing').select('*');
+        allPacking = data || []; renderPacking();
+    }
+    function renderPacking() {
+        let groups = {}; allPacking.forEach(p => { groups[p.category] = groups[p.category] || []; groups[p.category].push(p); });
+        let done = allPacking.filter(p => p.is_checked).length;
+        document.getElementById('pack-progress-text').innerText = `打包進度 ${allPacking.length ? Math.round((done/allPacking.length)*100) : 0}%`;
+        document.getElementById('pack-bar').style.width = (allPacking.length ? (done/allPacking.length)*100 : 0) + '%';
+        document.getElementById('packingList').innerHTML = Object.keys(groups).map(cat => `<div class="pack-cat-card"><div class="pack-cat-header" onclick="this.nextElementSibling.classList.toggle('open')"><span>${cat}</span><span>▼</span></div><div class="pack-cat-body">${groups[cat].map(p => `<div class="pack-item"><div style="display:flex;align-items:center;gap:12px;flex:1;" onclick="togglePack(${p.id},${!p.is_checked})"><div class="pack-checkbox ${p.is_checked?'checked':''}">✓</div><div style="font-size:15px;${p.is_checked?'color:#aaa;':''}">${p.item_name}</div></div><button style="border:none;background:none;color:#eee;" onclick="delPack(${p.id})">✕</button></div>`).join('')}</div></div>`).join('');
+    }
+    async function togglePack(id, s) { await _supabase.from('london_packing').update({ is_checked: s }).eq('id', id); fetchPacking(); }
+    async function savePacking() {
+        const cat = document.getElementById('pack-cat-input').value; const name = document.getElementById('pack-name-input').value;
+        if(!name) return alert('請填寫物品名稱');
+        await _supabase.from('london_packing').insert([{ category: cat, item_name: name, is_checked: false }]);
+        document.getElementById('pack-name-input').value = ''; closeModal('addPackingModal'); fetchPacking();
+    }
+    async function delPack(id) { event.stopPropagation(); if(confirm('刪除？')){ await _supabase.from('london_packing').delete().eq('id', id); fetchPacking(); } }
+
+    async function fetchNotes() {
+        const { data } = await _supabase.from('london_notes').select('*').order('id', { ascending: false });
+        allNotes = data || []; renderNotes();
+    }
+    function renderNotes() { document.getElementById('noteList').innerHTML = allNotes.map(n => `<div class="note-item" onclick="viewNote(${n.id})"><span class="note-cat">${n.category}</span><span class="note-preview">${n.content}</span></div>`).join(''); }
+    function openNoteModal(id = null) {
+        const n = id ? allNotes.find(x => x.id === id) : {id:'', category:'', content:''};
+        document.getElementById('note-id').value = n.id; document.getElementById('note-cat').value = n.category; document.getElementById('note-content').value = n.content;
+        closeModal('viewNoteModal'); openModal('noteModal');
+    }
+    async function saveNote() {
+        const up = { category: document.getElementById('note-cat').value, content: document.getElementById('note-content').value };
+        if(document.getElementById('note-id').value) await _supabase.from('london_notes').update(up).eq('id', document.getElementById('note-id').value);
+        else await _supabase.from('london_notes').insert([up]);
+        closeModal('noteModal'); fetchNotes();
+    }
+    function viewNote(id) {
+        const n = allNotes.find(x => x.id === id); document.getElementById('view-note-cat').innerText = n.category; document.getElementById('view-note-content').innerText = n.content;
+        document.getElementById('btn-del-note').onclick = async () => { if(confirm('刪除？')){ await _supabase.from('london_notes').delete().eq('id', id); closeModal('viewNoteModal'); fetchNotes(); } };
+        document.getElementById('btn-edit-note').onclick = () => openNoteModal(id); openModal('viewNoteModal');
+    }
+
+    async function fetchLinks() {
+        const { data } = await _supabase.from('london_links').select('*').order('id', { ascending: true });
+        document.getElementById('modal-link-list').innerHTML = (data||[]).map(l => `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;"><a href="${l.url}" target="_blank" style="color:#4A443D;text-decoration:none;font-size:14px;font-weight:600;">🔗 ${l.title}</a><button style="border:none;background:none;color:#ccc;" onclick="delLink(${l.id})">✕</button></div>`).join('');
+    }
+    async function addLink() { await _supabase.from('london_links').insert([{ title: document.getElementById('link-title').value, url: document.getElementById('link-url').value }]); fetchLinks(); }
+    async function delLink(id) { await _supabase.from('london_links').delete().eq('id', id); fetchLinks(); }
+    async function doTranslate() {
+        const t = document.getElementById('trans-input').value; if(!t) return;
+        try {
+            const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=zh-TW|en`);
+            const data = await res.json();
+            document.getElementById('trans-output').innerText = data.responseData.translatedText;
+        } catch(e) { document.getElementById('trans-output').innerText = "翻譯錯誤"; }
+    }
+
+    init();
+</script>
+</body>
+</html>
