@@ -27,7 +27,6 @@
 
         .card { background: var(--card-bg); border-radius: 24px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #fff; position: relative; }
         .card-title { font-size: 13px; color: var(--text-light); margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
-
         .gbp-text { font-size: 11px; color: #aaa; font-weight: 400; display: block; text-align: center; width: 100%; margin-top: 2px; }
 
         .exchange-calc { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
@@ -42,6 +41,10 @@
         .action-icon { font-size: 24px; display: block; margin-bottom: 6px;}
         .action-text { font-size: 12px; font-weight: 600; color: var(--text-main); }
         .btn-add-small { background: #EAE6DF; color: #4A443D; border: none; padding: 6px 12px; border-radius: 10px; font-size: 11px; cursor: pointer; font-weight: 600; }
+
+        .note-item { padding: 15px; background: #fafafa; border-radius: 16px; margin-bottom: 10px; cursor: pointer; border: 1px solid #eee; display: flex; flex-direction: column; gap: 6px; }
+        .note-cat { font-size: 10px; color: #fff; background: #D2C7BA; padding: 2px 8px; border-radius: 6px; align-self: flex-start; font-weight: 600;}
+        .note-preview { font-size: 14px; font-weight: 500; color: var(--text-main); white-space: pre-wrap; }
 
         /* 行程時間軸 */
         .day-scroller { display: flex; overflow-x: auto; gap: 12px; padding: 5px 0 15px; margin-bottom: 15px; margin-left: -20px; margin-right: -20px; padding-left: 20px; padding-right: 20px; }
@@ -206,7 +209,9 @@
 </div>
 
 <div id="translateModal" class="modal-overlay" onclick="closeModal('translateModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('translateModal')">✕</span><div class="modal-title">🇬🇧 中英翻譯機</div><textarea id="trans-input" class="modal-input" style="height:100px; resize:none;" placeholder="輸入中文 (例如: 我要買單)..."></textarea><button class="btn-modal" onclick="doTranslate()">翻譯成英文</button><div id="trans-output" style="margin-top:15px; padding:15px; background:#F2F4FA; border-radius:12px; font-size:15px; min-height:50px;"></div></div></div>
+
 <div id="emergencyModal" class="modal-overlay" onclick="closeModal('emergencyModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('emergencyModal')">✕</span><div class="modal-title">🚨 英國緊急聯絡</div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;"><div style="background:#FDF3F3; padding:15px; border-radius:12px; text-align:center;"><div style="font-size:11px;color:#999;">緊急報案</div><div style="font-size:24px; color:#D96C6C; font-weight:700;">999</div></div><div style="background:#FFF5F0; padding:15px; border-radius:12px; text-align:center;"><div style="font-size:11px;color:#999;">非緊急報案</div><div style="font-size:24px; color:#D98C6C; font-weight:700;">101</div></div></div><div style="background:#F2F4FA; padding:15px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:12px; color:#666;">駐英國台北代表處</div><div style="font-size:16px; font-weight:700; color:#4A443D;">07768-938-765</div></div><a href="tel:07768938765" style="background:#4A443D; color:#fff; padding:8px 15px; border-radius:10px; text-decoration:none; font-size:12px;">撥打</a></div></div></div>
+
 <div id="addPackingModal" class="modal-overlay" onclick="closeModal('addPackingModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('addPackingModal')">✕</span><div class="modal-title">🎒 新增物品</div><label class="modal-label">分類</label><select id="pack-cat-input" class="modal-input"><option>共同需要</option><option>媽行李</option><option>婷行李</option><option>重要證件</option></select><label class="modal-label">物品名稱</label><input type="text" id="pack-name-input" class="modal-input" placeholder="例如: 護照"><button class="btn-modal" onclick="savePacking()">儲存到清單</button></div></div>
 
 <div id="expenseModal" class="modal-overlay" onclick="closeModal('expenseModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('expenseModal')">✕</span><div class="modal-title" id="exp-modal-title">記花費</div><input type="hidden" id="exp-id"><label class="modal-label">日期</label><select id="exp-day" class="modal-input"></select><div style="display:flex; gap:10px;"><select id="exp-cat" class="modal-input" style="flex:1;"><option>🍽️ 飲食</option><option>🚇 交通</option><option>🏠 住宿</option><option>🛍️ 購物</option><option>🎫 票券</option><option>📦 其他</option></select><input type="text" id="exp-name" class="modal-input" style="flex:2;" placeholder="項目"></div><div style="display:flex; gap:10px;"><div style="flex:1;"><label class="modal-label">£ 英鎊</label><input type="number" id="exp-gbp" class="modal-input" value="0"></div><div style="flex:1;"><label class="modal-label">TWD 台幣</label><input type="number" id="exp-twd" class="modal-input" value="0"></div></div><label class="modal-label">付款方式</label><select id="exp-pay" class="modal-input"><option>現金</option><option>flygo婷</option><option>flygo媽</option><option>星展eco</option><option>支付寶</option><option>華航聯名卡</option><option>好市多媽</option><option>其他</option></select><label class="modal-label">備註</label><input type="text" id="exp-notes" class="modal-input" placeholder="例如: 超商買水"><button class="btn-modal" onclick="saveExpense()">儲存</button><button id="btn-del-exp" style="width:100%; background:none; color:#D96C6C; border:none; margin-top:20px; font-size:13px; font-weight:600; display:none;" onclick="delExpense()">🗑️ 刪除記錄</button></div></div>
@@ -214,8 +219,11 @@
 <div id="editTripModal" class="modal-overlay" onclick="closeModal('editTripModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('editTripModal')">✕</span><div class="modal-title">編輯卡片</div><input type="hidden" id="edit-trip-id"><input type="hidden" id="edit-trip-type"><label class="modal-label">時間</label><input type="text" id="edit-trip-time" class="modal-input" placeholder="10:00"><label class="modal-label">名稱</label><input type="text" id="edit-trip-dest" class="modal-input"><label class="modal-label">備註 (支援換行)</label><textarea id="edit-trip-notes" class="modal-input" style="height:120px; resize:none;"></textarea><label class="modal-label">Google Map 網址</label><input type="text" id="edit-trip-map" class="modal-input" placeholder="https://maps..."><div id="edit-group-transport" style="display:none;"><label class="modal-label">預算金額</label><input type="text" id="edit-trip-cost" class="modal-input"></div><button class="btn-modal" onclick="saveTripEdit()">儲存更新</button></div></div>
 
 <div id="chooseTypeModal" class="modal-overlay" onclick="closeModal('chooseTypeModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('chooseTypeModal')">✕</span><div class="modal-title">新增行程</div><button class="btn-modal" style="margin-bottom:12px;" onclick="addNewTrip('trip')">📍 景點行程</button><button class="btn-modal" style="background:#D2C7BA;" onclick="addNewTrip('transport')">🚌 交通移動</button></div></div>
+
 <div id="noteModal" class="modal-overlay" onclick="closeModal('noteModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('noteModal')">✕</span><div class="modal-title" id="note-modal-title">📝 記事</div><input type="hidden" id="note-id"><label class="modal-label">類別</label><input type="text" id="note-cat" class="modal-input"><label class="modal-label">內容</label><textarea id="note-content" class="modal-input" style="height:150px; resize:none;"></textarea><button class="btn-modal" onclick="saveNote()">儲存記事</button></div></div>
+
 <div id="viewNoteModal" class="modal-overlay" onclick="closeModal('viewNoteModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('viewNoteModal')">✕</span><div id="view-note-cat" style="font-size:11px; color:#fff; background:#D2C7BA; padding:3px 8px; border-radius:6px; display:inline-block; margin-bottom:15px; font-weight:600;"></div><div id="view-note-content" style="white-space:pre-wrap; word-break:break-all; margin-bottom:20px; font-size:15px;"></div><div style="display:flex; gap:10px;"><button class="btn-modal" id="btn-edit-note" style="background:#fff; color:#4A443D; border:1px solid #ddd; flex:1;">修改</button><button class="btn-modal" id="btn-del-note" style="background:#FFF5F0; color:#D96C6C; flex:1;">刪除</button></div></div></div>
+
 <div id="linkModal" class="modal-overlay" onclick="closeModal('linkModal', event)"><div class="modal-content" onclick="event.stopPropagation()"><span class="modal-close" onclick="closeModal('linkModal')">✕</span><div class="modal-title">🔗 連結</div><div style="display:flex; gap:8px;"><input type="text" id="link-title" class="modal-input" placeholder="名稱"><input type="text" id="link-url" class="modal-input" placeholder="https://"></div><button class="btn-modal" onclick="addLink()">儲存</button><div id="modal-link-list" style="margin-top:15px;"></div></div></div>
 
 <script>
@@ -386,9 +394,12 @@
         closeModal('noteModal'); fetchNotes();
     }
     function viewNote(id) {
-        const n = allNotes.find(x => x.id === id); document.getElementById('view-note-cat').innerText = n.category; document.getElementById('view-note-content').innerText = n.content;
+        const n = allNotes.find(x => x.id === id); 
+        document.getElementById('view-note-cat').innerText = n.category; 
+        document.getElementById('view-note-content').innerText = n.content;
         document.getElementById('btn-del-note').onclick = async () => { if(confirm('刪除？')){ await _supabase.from('london_notes').delete().eq('id', id); closeModal('viewNoteModal'); fetchNotes(); } };
-        document.getElementById('btn-edit-note').onclick = () => openNoteModal(id); openModal('viewNoteModal');
+        document.getElementById('btn-edit-note').onclick = () => openNoteModal(id); 
+        openModal('viewNoteModal');
     }
 
     async function fetchLinks() {
